@@ -87,4 +87,8 @@ func (l *innerLogger) Warning(message string) {
 	fmt.Printf("%s[-]%s %s\n", Yellow, Reset, message)
 }
 
+func (l *innerLogger) Query(message string) {
+	fmt.Printf("%s[?]%s %s", Cyan, Reset, message)
+}
+
 var Log = &innerLogger{}

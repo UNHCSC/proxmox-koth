@@ -63,9 +63,9 @@ func (e *Environment) PullFromDatabase() error {
 	return nil
 }
 
-func (e *Environment) CreateContainer(teamName, ipAddress string, verbose bool) (*Container, error) {
+func (e *Environment) createContainerStep1(teamName, ipAddress string, verbose bool) (int, error) {
 	if t, _ := database.GetTeam(teamName); t != nil {
-		return nil, fmt.Errorf("team %s already exists", teamName)
+		return 0, fmt.Errorf("team %s already exists", teamName)
 	}
 
 	if verbose {
@@ -75,23 +75,31 @@ func (e *Environment) CreateContainer(teamName, ipAddress string, verbose bool) 
 	_, ctID, err := e.proxmoxAPI.CreateContainer(e.proxmoxAPI.Nodes[0], ipAddress, teamName)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create container: %w", err)
+		return 0, fmt.Errorf("failed to create container: %w", err)
 	}
 
 	if verbose {
 		lib.Log.Success(fmt.Sprintf("[%s][%s]: Container CT-%d created", teamName, ipAddress, ctID))
 	}
 
+	return ctID, nil
+}
+
+func (e *Environment) createContainerStep2(teamName, ipAddress string, ctID int, verbose bool) error {
 	if err := e.proxmoxAPI.StartContainer(nil, ctID); err != nil {
-		return nil, fmt.Errorf("failed to start container: %w", err)
+		return fmt.Errorf("failed to start container: %w", err)
 	}
 
 	if verbose {
 		lib.Log.Success(fmt.Sprintf("[%s][%s]: Container CT-%d started", teamName, ipAddress, ctID))
 	}
 
+	return nil
+}
+
+func (e *Environment) createContainerStep3(teamName, ipAddress string, ctID int, verbose bool) error {
 	if err := lib.WaitOnline(ipAddress); err != nil {
-		return nil, fmt.Errorf("failed to wait for container to be online: %w", err)
+		return fmt.Errorf("failed to wait for container to be online: %w", err)
 	}
 
 	if verbose {
@@ -101,7 +109,7 @@ func (e *Environment) CreateContainer(teamName, ipAddress string, verbose bool) 
 	conn, err := lib.NewSSHConnection(ipAddress)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create SSH connection: %w", err)
+		return fmt.Errorf("failed to create SSH connection: %w", err)
 	}
 
 	defer conn.Close()
@@ -118,13 +126,17 @@ func (e *Environment) CreateContainer(teamName, ipAddress string, verbose bool) 
 	}
 
 	if err := conn.Send("wget -qO- http://192.168.6.66/startup_script.sh | bash"); err != nil {
-		return nil, fmt.Errorf("failed to send startup script: %w", err)
+		return fmt.Errorf("failed to send startup script: %w", err)
 	}
 
 	if verbose {
 		lib.Log.Success(fmt.Sprintf("[%s][%s]: Container initialized in %s", teamName, ipAddress, time.Since(startTime)))
 	}
 
+	return nil
+}
+
+func (e *Environment) createContainerStep4(teamName, ipAddress string, ctID int, verbose bool) error {
 	if verbose {
 		lib.Log.Status(fmt.Sprintf("[%s][%s]: Creating team in database", teamName, ipAddress))
 	}
@@ -132,7 +144,7 @@ func (e *Environment) CreateContainer(teamName, ipAddress string, verbose bool) 
 	team, err := database.CreateTeam(teamName, ipAddress, ctID, 0)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create team in database: %w", err)
+		return fmt.Errorf("failed to create team in database: %w", err)
 	}
 
 	if verbose {
@@ -146,7 +158,7 @@ func (e *Environment) CreateContainer(teamName, ipAddress string, verbose bool) 
 	container, err := e.proxmoxAPI.GetContainer(nil, ctID)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get container: %w", err)
+		return fmt.Errorf("failed to get container: %w", err)
 	}
 
 	e.Containers = append(e.Containers, &Container{
@@ -156,6 +168,28 @@ func (e *Environment) CreateContainer(teamName, ipAddress string, verbose bool) 
 
 	if verbose {
 		lib.Log.Success(fmt.Sprintf("[%s][%s]: Container added to environment", teamName, ipAddress))
+	}
+
+	return nil
+}
+
+func (e *Environment) CreateContainer(teamName, ipAddress string, verbose bool) (*Container, error) {
+	ctID, err := e.createContainerStep1(teamName, ipAddress, verbose)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := e.createContainerStep2(teamName, ipAddress, ctID, verbose); err != nil {
+		return nil, err
+	}
+
+	if err := e.createContainerStep3(teamName, ipAddress, ctID, verbose); err != nil {
+		return nil, err
+	}
+
+	if err := e.createContainerStep4(teamName, ipAddress, ctID, verbose); err != nil {
+		return nil, err
 	}
 
 	return e.Containers[len(e.Containers)-1], nil
@@ -281,4 +315,208 @@ func (e *Environment) InitAutoUpdate() chan bool {
 	}()
 
 	return stop
+}
+
+func (e *Environment) BulkCreate(inputs [][]string, bucketSize int) {
+	var buckets [][][]string = make([][][]string, 1)
+
+	for i, input := range inputs {
+		if i%bucketSize == 0 {
+			buckets = append(buckets, [][]string{})
+		}
+
+		buckets[len(buckets)-1] = append(buckets[len(buckets)-1], input)
+	}
+
+	for _, bucket := range buckets {
+		wg := &sync.WaitGroup{}
+
+		for _, input := range bucket {
+			wg.Add(1)
+
+			go func(i []string) {
+				defer wg.Done()
+
+				if _, err := e.CreateContainer(i[0], i[1], true); err != nil {
+					lib.Log.Error(fmt.Sprintf("[%s][%s]: Failed to create container: %s", i[0], i[1], err.Error()))
+				}
+			}(input)
+
+			time.Sleep(10 * time.Second)
+		}
+
+		wg.Wait()
+	}
+}
+
+type intermediateContainer struct {
+	ctID                int
+	teamName, ipAddress string
+}
+
+func (e *Environment) EfficientBulkCreate(inputs [][]string, bucketSize int) {
+	var buckets [][][]string = make([][][]string, 1)
+
+	for i, input := range inputs {
+		if i%bucketSize == 0 {
+			buckets = append(buckets, [][]string{})
+		}
+
+		buckets[len(buckets)-1] = append(buckets[len(buckets)-1], input)
+	}
+
+	for _, bucket := range buckets {
+		ctIDs := []intermediateContainer{}
+
+		for _, input := range bucket {
+			ctID, err := e.createContainerStep1(input[0], input[1], true)
+
+			if err != nil {
+				lib.Log.Error(fmt.Sprintf("[%s][%s]: Failed to create container: %s", input[0], input[1], err.Error()))
+				continue
+			}
+
+			ctIDs = append(ctIDs, intermediateContainer{
+				ctID:      ctID,
+				teamName:  input[0],
+				ipAddress: input[1],
+			})
+		}
+
+		wg := &sync.WaitGroup{}
+
+		for _, ctID := range ctIDs {
+			wg.Add(1)
+
+			go func(i intermediateContainer) {
+				defer wg.Done()
+
+				if err := e.createContainerStep2(i.teamName, i.ipAddress, i.ctID, true); err != nil {
+					lib.Log.Error(fmt.Sprintf("[%s][%s]: Failed to start container: %s", i.teamName, i.ipAddress, err.Error()))
+				}
+			}(ctID)
+		}
+
+		wg.Wait()
+
+		for _, ctID := range ctIDs {
+			wg.Add(1)
+
+			go func(i intermediateContainer) {
+				defer wg.Done()
+
+				if err := e.createContainerStep3(i.teamName, i.ipAddress, i.ctID, true); err != nil {
+					lib.Log.Error(fmt.Sprintf("[%s][%s]: Failed to initialize container: %s", i.teamName, i.ipAddress, err.Error()))
+				}
+			}(ctID)
+		}
+
+		wg.Wait()
+
+		for _, ctID := range ctIDs {
+			if err := e.createContainerStep4(ctID.teamName, ctID.ipAddress, ctID.ctID, true); err != nil {
+				lib.Log.Error(fmt.Sprintf("[%s][%s]: Failed to create container: %s", ctID.teamName, ctID.ipAddress, err.Error()))
+			}
+		}
+	}
+}
+
+func (e *Environment) BulkStart(ctIDs []int, bucketSize int) {
+	var buckets [][]int = make([][]int, 1)
+
+	for i, ctID := range ctIDs {
+		if i%bucketSize == 0 {
+			buckets = append(buckets, []int{})
+		}
+
+		buckets[len(buckets)-1] = append(buckets[len(buckets)-1], ctID)
+	}
+
+	for _, bucket := range buckets {
+		wg := &sync.WaitGroup{}
+
+		for _, ctID := range bucket {
+			wg.Add(1)
+
+			go func(i int) {
+				defer wg.Done()
+
+				if err := e.proxmoxAPI.StartContainer(nil, i); err != nil {
+					lib.Log.Error(fmt.Sprintf("Failed to start container %d: %s", i, err.Error()))
+				}
+			}(ctID)
+		}
+
+		wg.Wait()
+	}
+}
+
+func (e *Environment) BulkStop(ctIDs []int, bucketSize int) {
+	var buckets [][]int = make([][]int, 1)
+
+	for i, ctID := range ctIDs {
+		if i%bucketSize == 0 {
+			buckets = append(buckets, []int{})
+		}
+
+		buckets[len(buckets)-1] = append(buckets[len(buckets)-1], ctID)
+	}
+
+	for _, bucket := range buckets {
+		wg := &sync.WaitGroup{}
+
+		for _, ctID := range bucket {
+			wg.Add(1)
+
+			go func(i int) {
+				defer wg.Done()
+
+				if err := e.proxmoxAPI.StopContainer(nil, i); err != nil {
+					lib.Log.Error(fmt.Sprintf("Failed to stop container %d: %s", i, err.Error()))
+				}
+			}(ctID)
+		}
+
+		wg.Wait()
+	}
+}
+
+func (e *Environment) BulkDelete(ctIDs []int, bucketSize int) {
+	var buckets [][]int = make([][]int, 1)
+
+	for i, ctID := range ctIDs {
+		if i%bucketSize == 0 {
+			buckets = append(buckets, []int{})
+		}
+
+		buckets[len(buckets)-1] = append(buckets[len(buckets)-1], ctID)
+	}
+
+	for _, bucket := range buckets {
+		wg := &sync.WaitGroup{}
+
+		for _, ctID := range bucket {
+			wg.Add(1)
+
+			go func(i int) {
+				defer wg.Done()
+
+				if err := e.proxmoxAPI.DeleteContainer(nil, i); err != nil {
+					lib.Log.Error(fmt.Sprintf("Failed to delete container %d: %s", i, err.Error()))
+				}
+			}(ctID)
+		}
+
+		wg.Wait()
+	}
+}
+
+func (e *Environment) TeamByName(name string) *Container {
+	for _, container := range e.Containers {
+		if container.Team.Name == name {
+			return container
+		}
+	}
+
+	return nil
 }

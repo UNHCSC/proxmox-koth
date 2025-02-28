@@ -242,3 +242,23 @@ func (api *ProxmoxAPI) GetContainer(node *proxmox.Node, containerID int) (*proxm
 
 	return ct, nil
 }
+
+func (api *ProxmoxAPI) RelevantContainers() ([]*proxmox.Container, error) {
+	containers := make([]*proxmox.Container, 0)
+
+	for _, node := range api.Nodes {
+		nodeContainers, err := node.Containers(api.bg)
+
+		if err != nil {
+			return nil, err
+		}
+
+		for _, container := range nodeContainers {
+			if strings.Index(container.Name, Config.Container.HostnamePrefix) == 0 {
+				containers = append(containers, container)
+			}
+		}
+	}
+
+	return containers, nil
+}
