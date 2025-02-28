@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>King of the Hill</title>
+    <link rel="stylesheet" href="./index.css" />
+    <script src="./index.js" type="module" defer></script>
+</head>
+
+<body>
+
+    <div id="login">
+        <span>Please Log In To Continue</span>
+        <input id="username" type="text" placeholder="Username" autocomplete="off" />
+        <input id="password" type="password" placeholder="Password" autocomplete="off" />
+        <button id="loginButton">Login</button>
+    </div>
+
+    <div id="topnav" class="hidden">
+        <div id="createContainerDropdown">
+            <button id="createContainerButton">
+                <span>+</span>
+                <img src="./assets/loading.svg"/>
+            </button>
+            <div id="createContainerDropdownContent">
+                <input type="text" id="createContainerName" placeholder="Team Name" />
+                <input type="text" id="createContainerIPv4" placeholder="Container IPv4" />
+                <button id="createContainerSubmitButton">Create</button>
+            </div>
+        </div>
+        <input id="searchInput" type="text" placeholder="Filter by name..." />
+        <span id="topStatus">Loading Data...</span>
+        <button id="logoutButton">Logout</button>
+    </div>
+
+    <div id="main" class="hidden">
+        <template id="containerTemplate">
+            <div class="container">
+                <div class="containerHeader">
+                    <span class="containerName"></span>
+                    <div class="containerStatus"></div>
+                    <div class="containerDropdown">
+                        <button class="containerDropButton"><img src="./assets/three-dots.svg" /></button>
+                        <div class="containerDropdownContent">
+                            <button class="containerStartButton">Start</button>
+                            <button class="containerRestartButton">Restart</button>
+                            <button class="containerShutdownButton">Shutdown</button>
+                            <button class="containerDeleteButton">Delete</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="containerTidbit">
+                    <span>PVE Container:</span> <br />
+                    <span class="containerPVE">Loading...</span>
+                </div>
+                <div class="containerTidbit">
+                    <span>Container IPv4:</span> <br />
+                    <span class="containerIPv4 link">Loading...</span>
+                </div>
+                <div class="containerTidbit">
+                    <span>Team Score:</span> <br />
+                    <span class="containerScore">Loading...</span>
+                </div>
+                <div class="containerTidbit">
+                    <span>Overall Uptime:</span> <br />
+                    <span class="containerUptime">Loading...</span>
+                </div>
+                <div class="containerTidbit">
+                    <span>Service Checks:</span> <br />
+                    <span class="containerServiceChecks">Loading...</span>
+                </div>
+            </div>
+        </template>
+    </div>
+
+</body>
+
+</html>

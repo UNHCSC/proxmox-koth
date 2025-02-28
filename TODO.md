@@ -1,0 +1,7 @@
+- Batching
+- Error handling with database lookups
+- Updates/sync
+- Create api
+- Create Many API
+- Search
+- Management functions
