@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/luthermonson/go-proxmox"
@@ -261,4 +262,94 @@ func (api *ProxmoxAPI) RelevantContainers() ([]*proxmox.Container, error) {
 	}
 
 	return containers, nil
+}
+
+func (api *ProxmoxAPI) BulkStart(ctIDs []int, bucketSize int) {
+	var buckets [][]int = make([][]int, 1)
+
+	for i, ctID := range ctIDs {
+		if i%bucketSize == 0 {
+			buckets = append(buckets, []int{})
+		}
+
+		buckets[len(buckets)-1] = append(buckets[len(buckets)-1], ctID)
+	}
+
+	for _, bucket := range buckets {
+		wg := &sync.WaitGroup{}
+
+		for _, ctID := range bucket {
+			wg.Add(1)
+
+			go func(i int) {
+				defer wg.Done()
+
+				if err := api.StartContainer(nil, i); err != nil {
+					Log.Error(fmt.Sprintf("Failed to start container %d: %s", i, err.Error()))
+				}
+			}(ctID)
+		}
+
+		wg.Wait()
+	}
+}
+
+func (api *ProxmoxAPI) BulkStop(ctIDs []int, bucketSize int) {
+	var buckets [][]int = make([][]int, 1)
+
+	for i, ctID := range ctIDs {
+		if i%bucketSize == 0 {
+			buckets = append(buckets, []int{})
+		}
+
+		buckets[len(buckets)-1] = append(buckets[len(buckets)-1], ctID)
+	}
+
+	for _, bucket := range buckets {
+		wg := &sync.WaitGroup{}
+
+		for _, ctID := range bucket {
+			wg.Add(1)
+
+			go func(i int) {
+				defer wg.Done()
+
+				if err := api.StopContainer(nil, i); err != nil {
+					Log.Error(fmt.Sprintf("Failed to stop container %d: %s", i, err.Error()))
+				}
+			}(ctID)
+		}
+
+		wg.Wait()
+	}
+}
+
+func (api *ProxmoxAPI) BulkDelete(ctIDs []int, bucketSize int) {
+	var buckets [][]int = make([][]int, 1)
+
+	for i, ctID := range ctIDs {
+		if i%bucketSize == 0 {
+			buckets = append(buckets, []int{})
+		}
+
+		buckets[len(buckets)-1] = append(buckets[len(buckets)-1], ctID)
+	}
+
+	for _, bucket := range buckets {
+		wg := &sync.WaitGroup{}
+
+		for _, ctID := range bucket {
+			wg.Add(1)
+
+			go func(i int) {
+				defer wg.Done()
+
+				if err := api.DeleteContainer(nil, i); err != nil {
+					Log.Error(fmt.Sprintf("Failed to delete container %d: %s", i, err.Error()))
+				}
+			}(ctID)
+		}
+
+		wg.Wait()
+	}
 }

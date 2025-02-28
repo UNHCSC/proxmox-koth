@@ -22,6 +22,8 @@ type Container struct {
 type Environment struct {
 	Containers []*Container
 	proxmoxAPI *lib.ProxmoxAPI
+
+	nodeCreationTracker int
 }
 
 func NewEnvironment(proxmoxAPI *lib.ProxmoxAPI) *Environment {
@@ -72,7 +74,8 @@ func (e *Environment) createContainerStep1(teamName, ipAddress string, verbose b
 		lib.Log.Status(fmt.Sprintf("[%s][%s]: Creating container", teamName, ipAddress))
 	}
 
-	_, ctID, err := e.proxmoxAPI.CreateContainer(e.proxmoxAPI.Nodes[0], ipAddress, teamName)
+	_, ctID, err := e.proxmoxAPI.CreateContainer(e.proxmoxAPI.Nodes[e.nodeCreationTracker], ipAddress, teamName)
+	e.nodeCreationTracker = (e.nodeCreationTracker + 1) % len(e.proxmoxAPI.Nodes)
 
 	if err != nil {
 		return 0, fmt.Errorf("failed to create container: %w", err)
@@ -106,7 +109,7 @@ func (e *Environment) createContainerStep3(teamName, ipAddress string, ctID int,
 		lib.Log.Success(fmt.Sprintf("[%s][%s]: Container CT-%d is online", teamName, ipAddress, ctID))
 	}
 
-	conn, err := lib.NewSSHConnection(ipAddress)
+	conn, err := lib.NewSSHConnectionWithRetries(ipAddress, 10)
 
 	if err != nil {
 		return fmt.Errorf("failed to create SSH connection: %w", err)
@@ -418,96 +421,6 @@ func (e *Environment) EfficientBulkCreate(inputs [][]string, bucketSize int) {
 				lib.Log.Error(fmt.Sprintf("[%s][%s]: Failed to create container: %s", ctID.teamName, ctID.ipAddress, err.Error()))
 			}
 		}
-	}
-}
-
-func (e *Environment) BulkStart(ctIDs []int, bucketSize int) {
-	var buckets [][]int = make([][]int, 1)
-
-	for i, ctID := range ctIDs {
-		if i%bucketSize == 0 {
-			buckets = append(buckets, []int{})
-		}
-
-		buckets[len(buckets)-1] = append(buckets[len(buckets)-1], ctID)
-	}
-
-	for _, bucket := range buckets {
-		wg := &sync.WaitGroup{}
-
-		for _, ctID := range bucket {
-			wg.Add(1)
-
-			go func(i int) {
-				defer wg.Done()
-
-				if err := e.proxmoxAPI.StartContainer(nil, i); err != nil {
-					lib.Log.Error(fmt.Sprintf("Failed to start container %d: %s", i, err.Error()))
-				}
-			}(ctID)
-		}
-
-		wg.Wait()
-	}
-}
-
-func (e *Environment) BulkStop(ctIDs []int, bucketSize int) {
-	var buckets [][]int = make([][]int, 1)
-
-	for i, ctID := range ctIDs {
-		if i%bucketSize == 0 {
-			buckets = append(buckets, []int{})
-		}
-
-		buckets[len(buckets)-1] = append(buckets[len(buckets)-1], ctID)
-	}
-
-	for _, bucket := range buckets {
-		wg := &sync.WaitGroup{}
-
-		for _, ctID := range bucket {
-			wg.Add(1)
-
-			go func(i int) {
-				defer wg.Done()
-
-				if err := e.proxmoxAPI.StopContainer(nil, i); err != nil {
-					lib.Log.Error(fmt.Sprintf("Failed to stop container %d: %s", i, err.Error()))
-				}
-			}(ctID)
-		}
-
-		wg.Wait()
-	}
-}
-
-func (e *Environment) BulkDelete(ctIDs []int, bucketSize int) {
-	var buckets [][]int = make([][]int, 1)
-
-	for i, ctID := range ctIDs {
-		if i%bucketSize == 0 {
-			buckets = append(buckets, []int{})
-		}
-
-		buckets[len(buckets)-1] = append(buckets[len(buckets)-1], ctID)
-	}
-
-	for _, bucket := range buckets {
-		wg := &sync.WaitGroup{}
-
-		for _, ctID := range bucket {
-			wg.Add(1)
-
-			go func(i int) {
-				defer wg.Done()
-
-				if err := e.proxmoxAPI.DeleteContainer(nil, i); err != nil {
-					lib.Log.Error(fmt.Sprintf("Failed to delete container %d: %s", i, err.Error()))
-				}
-			}(ctID)
-		}
-
-		wg.Wait()
 	}
 }
 

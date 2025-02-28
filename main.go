@@ -157,18 +157,6 @@ func run() {
 
 	env.Print()
 
-	// for i := 1; i <= 5; i++ {
-	// 	go func() {
-	// 		if _, err := env.CreateContainer(fmt.Sprintf("Team %d", i), fmt.Sprintf("192.168.7.%d", 238+i), true); err != nil {
-	// 			lib.Log.Error(err.Error())
-	// 		} else {
-	// 			lib.Log.Status(fmt.Sprintf("[%s][%s]: Team Initialized", fmt.Sprintf("Team %d", i), fmt.Sprintf("192.168.7.%d", 238+i)))
-	// 		}
-	// 	}()
-
-	// 	time.Sleep(15 * time.Second)
-	// }
-
 	envUpdateChannel := env.InitAutoUpdate()
 
 	// Serve static files w/ CORS
@@ -414,7 +402,7 @@ func initTeams() {
 			return
 		}
 	} else {
-		var teamNameRegex, teamIPRegex *regexp.Regexp = regexp.MustCompile("^[a-zA-Z0-9_\\- ]+$"), regexp.MustCompile("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$")
+		var teamNameRegex, teamIPRegex *regexp.Regexp = regexp.MustCompile(`^[a-zA-Z0-9_\- ]+$`), regexp.MustCompile(`^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$`)
 
 		for {
 			var name, ipv4 string
@@ -547,19 +535,29 @@ func purge() {
 	if containers, err := proxmox.RelevantContainers(); err != nil {
 		lib.Log.Error(fmt.Sprintf("Error getting containers: %s", err))
 	} else {
-		for _, container := range containers {
-			if err := proxmox.StopContainer(nil, int(container.VMID)); err != nil {
-				lib.Log.Error(fmt.Sprintf("Error stopping container %d: %s", container.VMID, err))
-			} else {
-				lib.Log.Status(fmt.Sprintf("Container %d stopped", container.VMID))
-			}
+		// for _, container := range containers {
+		// 	if err := proxmox.StopContainer(nil, int(container.VMID)); err != nil {
+		// 		lib.Log.Error(fmt.Sprintf("Error stopping container %d: %s", container.VMID, err))
+		// 	} else {
+		// 		lib.Log.Status(fmt.Sprintf("Container %d stopped", container.VMID))
+		// 	}
 
-			if err := proxmox.DeleteContainer(nil, int(container.VMID)); err != nil {
-				lib.Log.Error(fmt.Sprintf("Error deleting container %d: %s", container.VMID, err))
-			} else {
-				lib.Log.Status(fmt.Sprintf("Container %d deleted", container.VMID))
-			}
+		// 	if err := proxmox.DeleteContainer(nil, int(container.VMID)); err != nil {
+		// 		lib.Log.Error(fmt.Sprintf("Error deleting container %d: %s", container.VMID, err))
+		// 	} else {
+		// 		lib.Log.Status(fmt.Sprintf("Container %d deleted", container.VMID))
+		// 	}
+		// }
+
+		ctIDs := make([]int, len(containers))
+
+		for i, container := range containers {
+			ctIDs[i] = int(container.VMID)
 		}
+
+		proxmox.BulkStop(ctIDs, 5)
+		proxmox.BulkDelete(ctIDs, 5)
+		lib.Log.Status(fmt.Sprintf("Deleted %d containers", len(containers)))
 	}
 
 	lib.Log.Success("Purge complete")
@@ -578,6 +576,8 @@ func main() {
 		initTeams()
 	case "purge":
 		purge()
+	case "ssh":
+		sshTesting()
 	default:
 		fmt.Println("Available modes:")
 		fmt.Println("\trun - Run the King of the Hill environment normally")
@@ -586,28 +586,47 @@ func main() {
 	}
 }
 
-// func main() {
-// 	lib.InitEnv()
-// 	proxmox, err := lib.InitProxmox()
+func sshTesting() {
+	if err := lib.InitEnv(); err != nil {
+		lib.Log.Error(fmt.Sprintf("Error initializing environment: %s", err))
+		return
+	} else {
+		lib.Log.Status("Environment initialized")
+	}
 
-// 	if err != nil {
-// 		lib.Log.Error(fmt.Sprintf("Error initializing Proxmox: %s", err))
-// 		return
-// 	}
+	if err := lib.InitSSH(); err != nil {
+		lib.Log.Error(fmt.Sprintf("Error initializing SSH: %s", err))
+		return
+	} else {
+		lib.Log.Status("SSH initialized")
+	}
 
-// 	var ids []int = []int{105, 129, 130, 131, 132}
+	client, err := lib.NewSSHConnectionWithRetries("192.168.6.249", 2)
 
-// 	for _, id := range ids {
-// 		if err := proxmox.StopContainer(nil, id); err != nil {
-// 			lib.Log.Error(fmt.Sprintf("Error stopping container %d: %s", id, err))
-// 		} else {
-// 			lib.Log.Status(fmt.Sprintf("Container %d stopped", id))
-// 		}
+	if err != nil {
+		lib.Log.Error(fmt.Sprintf("Error connecting to SSH: %s", err))
+		return
+	}
 
-// 		if err := proxmox.DeleteContainer(nil, id); err != nil {
-// 			lib.Log.Error(fmt.Sprintf("Error deleting container %d: %s", id, err))
-// 		} else {
-// 			lib.Log.Status(fmt.Sprintf("Container %d deleted", id))
-// 		}
-// 	}
-// }
+	defer client.Close()
+	// if err := client.Send("echo 'team1' > /var/www/html/team.html"); err != nil {
+	// 	lib.Log.Error(fmt.Sprintf("Error sending command: %s", err))
+	// } else {
+	// 	lib.Log.Status("Command sent")
+	// }
+
+	status, output, err := client.SendWithOutput("cat /var/www/html/team.html")
+
+	if err != nil {
+		lib.Log.Error(fmt.Sprintf("Error sending command: %s", err))
+		return
+	}
+
+	if status != 0 {
+		lib.Log.Error(fmt.Sprintf("Error sending command: %s", output))
+		return
+	}
+
+	lib.Log.Status(fmt.Sprintf("Command output: %s", output))
+	lib.Log.Status("Command sent")
+}

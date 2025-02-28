@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"os"
 	"path/filepath"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -92,6 +93,20 @@ func (conn *SSHConnection) Send(command string) error {
 	return conn.session.Run(command)
 }
 
+func (conn *SSHConnection) SendWithOutput(command string) (int, string, error) {
+	output, err := conn.session.CombinedOutput(command)
+
+	if err != nil {
+		if exitErr, ok := err.(*ssh.ExitError); ok {
+			return exitErr.ExitStatus(), string(output), nil
+		}
+
+		return -1, string(output), err
+	}
+
+	return 0, string(output), nil
+}
+
 func NewSSHConnection(ipAddress string) (*SSHConnection, error) {
 	signer, err := ssh.ParsePrivateKey([]byte(SSHPrivateKey))
 	if err != nil {
@@ -121,4 +136,20 @@ func NewSSHConnection(ipAddress string) (*SSHConnection, error) {
 		client:  client,
 		session: session,
 	}, nil
+}
+
+func NewSSHConnectionWithRetries(ipAddress string, maxRetries int) (*SSHConnection, error) {
+	var conn *SSHConnection
+	var err error
+
+	for range maxRetries {
+		conn, err = NewSSHConnection(ipAddress)
+		if err == nil {
+			return conn, nil
+		}
+
+		time.Sleep(time.Second + time.Duration(2)*time.Second)
+	}
+
+	return nil, err
 }
