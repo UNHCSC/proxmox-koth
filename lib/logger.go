@@ -61,34 +61,60 @@ func ColorTest() {
  * for repetitive logging tasks
  */
 
-type innerLogger struct{}
+type Logger struct{}
 
-func (l *innerLogger) Basic(message string) {
+func (l *Logger) Basic(message string) {
 	fmt.Printf("%s[>]%s %s\n", Cyan, Reset, message)
 }
 
-func (l *innerLogger) Status(message string) {
+func (l *Logger) Basicf(format string, args ...any) {
+	fmt.Printf(fmt.Sprintf("%s[>]%s %s\n", Cyan, Reset, format), args...)
+}
+
+func (l *Logger) Status(message string) {
 	fmt.Printf("%s[@]%s %s\n", Magenta, Reset, message)
 }
 
-func (l *innerLogger) Error(message string) {
+func (l *Logger) Statusf(format string, args ...any) {
+	fmt.Printf(fmt.Sprintf("%s[@]%s %s\n", Magenta, Reset, format), args...)
+}
+
+func (l *Logger) Error(message string) {
 	fmt.Printf("%s[!]%s %s\n", BoldRed, Reset, message)
 }
 
-func (l *innerLogger) Important(message string) {
+func (l *Logger) Errorf(format string, args ...any) {
+	fmt.Printf(fmt.Sprintf("%s[!]%s %s\n", BoldRed, Reset, format), args...)
+}
+
+func (l *Logger) Important(message string) {
 	fmt.Printf("%s[#]%s %s%s%s\n", BoldRed, Reset, Bold, message, Reset)
 }
 
-func (l *innerLogger) Success(message string) {
+func (l *Logger) Importantf(format string, args ...any) {
+	fmt.Printf(fmt.Sprintf("%s[#]%s %s%s%s\n", BoldRed, Reset, Bold, format, Reset), args...)
+}
+
+func (l *Logger) Success(message string) {
 	fmt.Printf("%s[+]%s %s\n", Green, Reset, message)
 }
 
-func (l *innerLogger) Warning(message string) {
+func (l *Logger) Successf(format string, args ...any) {
+	fmt.Printf(fmt.Sprintf("%s[+]%s %s\n", Green, Reset, format), args...)
+}
+
+func (l *Logger) Warning(message string) {
 	fmt.Printf("%s[-]%s %s\n", Yellow, Reset, message)
 }
 
-func (l *innerLogger) Query(message string) {
-	fmt.Printf("%s[?]%s %s", Cyan, Reset, message)
+func (l *Logger) Warningf(format string, args ...any) {
+	fmt.Printf(fmt.Sprintf("%s[-]%s %s\n", Yellow, Reset, format), args...)
 }
 
-var Log = &innerLogger{}
+func (l *Logger) Query(message string) {
+	fmt.Printf("%s[?]%s %s", Blue, Reset, message)
+}
+
+func (l *Logger) Queryf(format string, args ...any) {
+	fmt.Printf(fmt.Sprintf("%s[?]%s %s\n", Blue, Reset, format), args...)
+}
