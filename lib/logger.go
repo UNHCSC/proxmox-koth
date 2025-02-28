@@ -61,60 +61,62 @@ func ColorTest() {
  * for repetitive logging tasks
  */
 
-type Logger struct{}
+type innerLogger struct{}
 
-func (l *Logger) Basic(message string) {
+func (l *innerLogger) Basic(message string) {
 	fmt.Printf("%s[>]%s %s\n", Cyan, Reset, message)
 }
 
-func (l *Logger) Basicf(format string, args ...any) {
+func (l *innerLogger) Basicf(format string, args ...any) {
 	fmt.Printf(fmt.Sprintf("%s[>]%s %s\n", Cyan, Reset, format), args...)
 }
 
-func (l *Logger) Status(message string) {
+func (l *innerLogger) Status(message string) {
 	fmt.Printf("%s[@]%s %s\n", Magenta, Reset, message)
 }
 
-func (l *Logger) Statusf(format string, args ...any) {
+func (l *innerLogger) Statusf(format string, args ...any) {
 	fmt.Printf(fmt.Sprintf("%s[@]%s %s\n", Magenta, Reset, format), args...)
 }
 
-func (l *Logger) Error(message string) {
+func (l *innerLogger) Error(message string) {
 	fmt.Printf("%s[!]%s %s\n", BoldRed, Reset, message)
 }
 
-func (l *Logger) Errorf(format string, args ...any) {
+func (l *innerLogger) Errorf(format string, args ...any) {
 	fmt.Printf(fmt.Sprintf("%s[!]%s %s\n", BoldRed, Reset, format), args...)
 }
 
-func (l *Logger) Important(message string) {
+func (l *innerLogger) Important(message string) {
 	fmt.Printf("%s[#]%s %s%s%s\n", BoldRed, Reset, Bold, message, Reset)
 }
 
-func (l *Logger) Importantf(format string, args ...any) {
+func (l *innerLogger) Importantf(format string, args ...any) {
 	fmt.Printf(fmt.Sprintf("%s[#]%s %s%s%s\n", BoldRed, Reset, Bold, format, Reset), args...)
 }
 
-func (l *Logger) Success(message string) {
+func (l *innerLogger) Success(message string) {
 	fmt.Printf("%s[+]%s %s\n", Green, Reset, message)
 }
 
-func (l *Logger) Successf(format string, args ...any) {
+func (l *innerLogger) Successf(format string, args ...any) {
 	fmt.Printf(fmt.Sprintf("%s[+]%s %s\n", Green, Reset, format), args...)
 }
 
-func (l *Logger) Warning(message string) {
+func (l *innerLogger) Warning(message string) {
 	fmt.Printf("%s[-]%s %s\n", Yellow, Reset, message)
 }
 
-func (l *Logger) Warningf(format string, args ...any) {
+func (l *innerLogger) Warningf(format string, args ...any) {
 	fmt.Printf(fmt.Sprintf("%s[-]%s %s\n", Yellow, Reset, format), args...)
 }
 
-func (l *Logger) Query(message string) {
+func (l *innerLogger) Query(message string) {
 	fmt.Printf("%s[?]%s %s", Blue, Reset, message)
 }
 
-func (l *Logger) Queryf(format string, args ...any) {
+func (l *innerLogger) Queryf(format string, args ...any) {
 	fmt.Printf(fmt.Sprintf("%s[?]%s %s\n", Blue, Reset, format), args...)
 }
+
+var Log *innerLogger = &innerLogger{}
