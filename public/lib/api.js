@@ -108,5 +108,16 @@ export async function getContainers() {
 }
 
 export async function pollAccess() {
-    return (await fetch("/api/checkLogin")).status === 200;
+    return (await fetch("/api/checkLogin", {
+        credentials: "include"
+    })).status === 200;
+}
+
+export async function logout() {
+    const response = await fetch("/api/logout", {
+        method: "DELETE",
+        credentials: "include"
+    });
+
+    return new APIResponse(response.status, null);
 }

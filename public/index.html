@@ -9,18 +9,18 @@
 
 <body>
 
-    <div id="login">
+    <div id="login" class="hidden">
         <span>Please Log In To Continue</span>
         <input id="username" type="text" placeholder="Username" autocomplete="off" />
         <input id="password" type="password" placeholder="Password" autocomplete="off" />
         <button id="loginButton">Login</button>
     </div>
 
-    <div id="topnav" class="hidden">
-        <div id="createContainerDropdown">
+    <div id="topnav">
+        <div id="createContainerDropdown" class="hidden">
             <button id="createContainerButton">
                 <span>+</span>
-                <img src="./assets/loading.svg"/>
+                <img src="./assets/loading.svg" />
             </button>
             <div id="createContainerDropdownContent">
                 <input type="text" id="createContainerName" placeholder="Team Name" />
@@ -28,18 +28,18 @@
                 <button id="createContainerSubmitButton">Create</button>
             </div>
         </div>
-        <input id="searchInput" type="text" placeholder="Filter by name..." />
+        <button id="switchButton">Switch View</button>
         <span id="topStatus">Loading Data...</span>
-        <button id="logoutButton">Logout</button>
+        <button id="accessButton">Login</button>
     </div>
 
-    <div id="main" class="hidden">
+    <div id="main">
         <template id="containerTemplate">
             <div class="container">
                 <div class="containerHeader">
                     <span class="containerName"></span>
                     <div class="containerStatus"></div>
-                    <div class="containerDropdown">
+                    <div class="containerDropdown hidden">
                         <button class="containerDropButton"><img src="./assets/three-dots.svg" /></button>
                         <div class="containerDropdownContent">
                             <button class="containerStartButton">Start</button>
@@ -55,7 +55,7 @@
                     <span class="containerPVE">Loading...</span>
                 </div>
                 <div class="containerTidbit">
-                    <span>Container IPv4:</span> <br />
+                    <span>Container IPv4:</span> <button class="containerIPCopyButton"><img src="./assets/copy.svg" /></button> <br />
                     <span class="containerIPv4 link">Loading...</span>
                 </div>
                 <div class="containerTidbit">

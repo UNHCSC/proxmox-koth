@@ -12,11 +12,40 @@ import (
 	"koth.cyber.cs.unh.edu/lib"
 )
 
+var InitScriptAccessTokens map[string]string = make(map[string]string)
+var InitScriptAccessTokensMutex sync.Mutex = sync.Mutex{}
+
+func AddInitScriptAccessToken() string {
+	InitScriptAccessTokensMutex.Lock()
+	defer InitScriptAccessTokensMutex.Unlock()
+
+	token := lib.RandomString(16)
+
+	if _, ok := InitScriptAccessTokens[token]; !ok {
+		InitScriptAccessTokens[token] = token
+	}
+
+	return token
+}
+
+func QueryInitScriptAccessToken(token string) bool {
+	InitScriptAccessTokensMutex.Lock()
+	defer InitScriptAccessTokensMutex.Unlock()
+
+	if _, ok := InitScriptAccessTokens[token]; ok {
+		delete(InitScriptAccessTokens, token)
+		return true
+	}
+
+	return false
+}
+
 type Container struct {
 	Container                               *proxmox.Container
 	Team                                    *database.DBTeam
 	ServiceChecksCount, ServiceChecksPassed int
 	UpdatedAt                               time.Time
+	PassedChecks, FailedChecks              []string
 }
 
 type Environment struct {
@@ -128,7 +157,21 @@ func (e *Environment) createContainerStep3(teamName, ipAddress string, ctID int,
 		startTime = time.Now()
 	}
 
-	if err := conn.Send("wget -qO- http://192.168.6.66/startup_script.sh | bash"); err != nil {
+	fmt.Printf("wget -qO- %s://%s:%s/init_script.sh?token=%s | bash", func() string {
+		if lib.Config.WebServer.TlsDir != "" {
+			return "https"
+		}
+
+		return "http"
+	}(), lib.LocalIP, fmt.Sprint(lib.Config.WebServer.Port), AddInitScriptAccessToken())
+
+	if err := conn.Send(fmt.Sprintf("wget -qO- %s://%s:%s/init_script.sh?token=%s | bash", func() string {
+		if lib.Config.WebServer.TlsDir != "" {
+			return "https"
+		}
+
+		return "http"
+	}(), lib.LocalIP, fmt.Sprint(lib.Config.WebServer.Port), AddInitScriptAccessToken())); err != nil {
 		return fmt.Errorf("failed to send startup script: %w", err)
 	}
 
@@ -205,16 +248,16 @@ func (e *Environment) Print() {
 }
 
 func (e *Environment) JSON() ([]byte, error) {
-	containers := make([]map[string]interface{}, len(e.Containers))
+	containers := make([]map[string]any, len(e.Containers))
 
 	for i, container := range e.Containers {
-		containers[i] = map[string]interface{}{
-			"container": map[string]interface{}{
+		containers[i] = map[string]any{
+			"container": map[string]any{
 				"pve_id": container.Team.ContainerID,
 				"ipv4":   container.Team.ContainerIP,
 				"status": container.Container.Status,
 			},
-			"team": map[string]interface{}{
+			"team": map[string]any{
 				"name":  container.Team.Name,
 				"score": container.Team.Score,
 				"uptime": func() float64 {
@@ -224,10 +267,14 @@ func (e *Environment) JSON() ([]byte, error) {
 
 					return math.Round(float64(container.Team.UptimeChecksPassed)/float64(container.Team.UptimeChecksTotal)*100) / 100
 				}(),
-				"checks": map[string]interface{}{
-					"total":  container.Team.UptimeChecksTotal,
-					"passed": container.Team.UptimeChecksPassed,
-					"failed": container.Team.UptimeChecksTotal - container.Team.UptimeChecksPassed,
+				"checks": map[string]any{
+					"total":  container.Team.ServiceChecksTotal,
+					"passed": container.Team.ServiceChecksPassed,
+					"failed": container.Team.ServiceChecksTotal - container.Team.ServiceChecksPassed,
+					"named": map[string]any{
+						"passed": container.PassedChecks,
+						"failed": container.FailedChecks,
+					},
 				},
 			},
 			"lastUpdate": container.UpdatedAt.Format(time.RFC3339),
@@ -255,49 +302,36 @@ func (e *Environment) InitAutoUpdate() chan bool {
 					wg.Add(1)
 					go func(ct *Container) {
 						defer wg.Done()
-						// Check proxmox status
-						newCT, err := e.proxmoxAPI.GetContainer(nil, ct.Team.ContainerID)
 
-						if err != nil {
-							lib.Log.Error(fmt.Sprintf("[%s][%s]: Failed to get container status: %s", ct.Team.Name, ct.Team.ContainerIP, err.Error()))
-							return
-						}
-
-						ct.Container = newCT
-						ct.Team.ServiceChecksTotal = 0
 						ct.Team.ServiceChecksPassed = 0
+						ct.Team.ServiceChecksTotal = 0
 
-						ct.Team.UptimeChecksTotal++
-						ct.Team.UptimeChecksPassed += func() int {
-							if ct.Container.Status == "running" {
-								ct.Team.Score += 3
-								return 1
+						ct.PassedChecks = []string{}
+						ct.FailedChecks = []string{}
+
+						for _, check := range ScoringChecks {
+							ct.Team.ServiceChecksTotal++
+
+							if check.CheckFunction(e, ct) {
+								ct.Team.ServiceChecksPassed++
+								ct.Team.Score += check.Reward
+
+								if check.Name == "Ping" {
+									ct.Team.UptimeChecksPassed++
+									ct.Team.UptimeChecksTotal++
+								}
+
+								ct.PassedChecks = append(ct.PassedChecks, check.Name)
+							} else {
+								ct.Team.Score -= check.Penalty
+
+								if check.Name == "Ping" {
+									ct.Team.UptimeChecksTotal++
+								}
+
+								ct.FailedChecks = append(ct.FailedChecks, check.Name)
 							}
-
-							return 0
-						}()
-
-						// Check Website
-						ct.Team.ServiceChecksTotal++
-						ct.Team.ServiceChecksPassed += func() int {
-							if res := lib.HttpGetHost(fmt.Sprintf("http://%s", ct.Team.ContainerIP)); len(res) >= 24 {
-								ct.Team.Score += 5
-								return 1
-							}
-
-							return 0
-						}()
-
-						// Check ping
-						ct.Team.ServiceChecksTotal++
-						ct.Team.ServiceChecksPassed += func() int {
-							if lib.PingHost(ct.Team.ContainerIP) {
-								ct.Team.Score += 2
-								return 1
-							}
-
-							return 0
-						}()
+						}
 
 						ct.UpdatedAt = time.Now()
 					}(container)

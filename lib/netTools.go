@@ -1,8 +1,10 @@
 package lib
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os/exec"
 	"runtime"
@@ -56,4 +58,45 @@ func HttpGetHost(fullURL string) string {
 	}
 
 	return string(body)
+}
+
+func GetLocalIP() (string, error) {
+	output, err := exec.Command("hostname", "-I").Output()
+
+	if err != nil {
+		interfaces, err := net.Interfaces()
+
+		if err != nil {
+			return "", err
+		}
+
+		for _, iface := range interfaces {
+			addrs, err := iface.Addrs()
+			if err != nil {
+				continue
+			}
+
+			for _, addr := range addrs {
+				if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() && ipNet.IP.To4() != nil {
+					return ipNet.IP.String(), nil
+				}
+			}
+		}
+
+		return "", fmt.Errorf("no valid IP address found")
+	}
+
+	return string(output), nil
+}
+
+func RandomString(length int) string {
+	bytes := make([]byte, length)
+
+	_, err := rand.Read(bytes)
+
+	if err != nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%x", bytes)
 }

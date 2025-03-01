@@ -50,6 +50,7 @@ type Environment struct {
 }
 
 var Config Environment
+var LocalIP string
 
 func InitEnv() error {
 	if err := godotenv.Load(); err != nil {
@@ -57,6 +58,12 @@ func InitEnv() error {
 	}
 
 	_, err := env.UnmarshalFromEnviron(&Config)
+	if err != nil {
+		return err
+	}
+
+	LocalIP, err = GetLocalIP()
+
 	if err != nil {
 		return err
 	}

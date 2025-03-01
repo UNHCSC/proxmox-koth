@@ -1,8 +1,20 @@
 * {
     font-family: sans-serif;
     transition: all .2s ease-in-out;
-    color: #555555;
+    color: var(--text);
     font-weight: bold;
+}
+
+:root {
+    --bg: rgba(255, 255, 255, .8);
+    --dropdown: rgba(24, 24, 24, .6);
+    --text: #555555;
+}
+
+:root.dark {
+    --bg: rgba(24, 24, 24, .6);
+    --dropdown: rgba(224, 224, 224, .8);
+    --text: #f8f9fa;
 }
 
 body {
@@ -25,7 +37,7 @@ body {
     transform: translate(-50%, -50%);
     padding: 2vmin;
     border-radius: 1vmin;
-    background-color: rgba(255, 255, 255, 0.8);
+    background-color: var(--bg);
 }
 
 #login span {
@@ -79,7 +91,7 @@ body {
     transform: translate(-50%, -50%);
     padding: 2vmin;
     border-radius: 1vmin;
-    background-color: rgba(255, 255, 255, 0.8);
+    background-color: var(--bg);
     width: 80%;
     height: calc(100% - 24vmin);
     display: grid;
@@ -114,7 +126,7 @@ body {
     left: 0;
     width: calc(100% - 8vmin);
     padding: 1vmin 4vmin;
-    background-color: rgba(255, 255, 255, 0.8);
+    background-color: var(--bg);
     border-bottom-left-radius: .5vmin;
     border-bottom-right-radius: .5vmin;
     display: flex;
@@ -159,6 +171,7 @@ body {
     0% {
         transform: rotate(0deg);
     }
+
     100% {
         transform: rotate(360deg);
     }
@@ -167,7 +180,7 @@ body {
 #createContainerDropdownContent {
     display: none;
     position: absolute;
-    background-color: rgba(0, 0, 0, .6);
+    background-color: var(--dropdown);
     padding: 1vmin;
     border-radius: 1vmin;
     z-index: 1;
@@ -231,10 +244,10 @@ body {
     background-color: #e9ecef;
 }
 
-#topnav #logoutButton {
+#topnav #accessButton {
     border: none;
     border-radius: 1vmin;
-    background-color: #dc3545;
+    background-color: #007bff;
     color: white;
     font-size: 2vmin;
     padding: 1vmin 2vmin;
@@ -242,24 +255,30 @@ body {
     cursor: pointer;
 }
 
-#topnav #logoutButton:hover {
+#topnav #accessButton:hover {
     filter: brightness(80%);
 }
 
-#topnav #logoutButton:active {
+#topnav #accessButton:active {
     filter: brightness(60%);
+}
+
+#topnav #accessButton.logout {
+    background-color: #dc3545;
 }
 
 #main.hidden,
 #topnav.hidden,
-#login.hidden {
+#login.hidden,
+#createContainerDropdown.hidden,
+.containerDropdown.hidden {
     display: none;
 }
 
 .container {
     padding: 2vmin;
     border-radius: 1vmin;
-    background-color: rgba(255, 255, 255, 0.8);
+    background-color: var(--bg);
     margin: 1vmin 0;
     max-height: max-content;
 }
@@ -292,7 +311,7 @@ body {
     display: none;
     position: absolute;
     transform: translate(-30%, 0);
-    background-color: rgba(0, 0, 0, .4);
+    background-color: var(--dropdown);
     padding: 1vmin;
     z-index: 1;
 }
@@ -302,7 +321,7 @@ body {
     padding: .25vmin;
     border: none;
     background-color: white;
-    color: #555555;
+    color: var(--text);
     cursor: pointer;
     font-size: 1.5vmin;
     margin-top: .5vmin;
@@ -337,6 +356,10 @@ body {
     background-color: #dc3545;
 }
 
+.containerStatus.status-services-down {
+    background-color: #ffc107;
+}
+
 .containerStatus.status-unknown {
     background-color: #6c757d;
 }
@@ -358,4 +381,23 @@ body {
 span.link {
     text-decoration: underline;
     cursor: pointer;
+}
+
+#switchButton {
+    border: none;
+    border-radius: 1vmin;
+    background-color: #28a745;
+    color: white;
+    font-size: 2vmin;
+    padding: 1vmin 2vmin;
+    text-align: center;
+    cursor: pointer;
+}
+
+#switchButton:hover {
+    filter: brightness(80%);
+}
+
+#switchButton:active {
+    filter: brightness(60%);
 }

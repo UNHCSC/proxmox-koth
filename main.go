@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"crypto/rand"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -27,21 +27,9 @@ func (t *Token) Expired() bool {
 
 var tokens []*Token = make([]*Token, 0)
 
-func RandomString(length int) string {
-	bytes := make([]byte, length)
-
-	_, err := rand.Read(bytes)
-
-	if err != nil {
-		return ""
-	}
-
-	return fmt.Sprintf("%x", bytes)
-}
-
 func NewToken() *Token {
 	var token *Token = &Token{
-		Token:   RandomString(48),
+		Token:   lib.RandomString(48),
 		Expires: time.Now().Add(time.Hour),
 	}
 
@@ -117,6 +105,28 @@ func withAuth(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
+func serveInitScript(w http.ResponseWriter, r *http.Request) {
+	withCors(w, r)
+
+	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !withAuth(w, r) {
+		return
+	}
+
+	query := r.URL.Query()
+
+	if !query.Has("token") || !environment.QueryInitScriptAccessToken(query.Get("token")) {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	http.ServeFile(w, r, "./init_script.sh")
+}
+
 func run() {
 	if err := lib.InitEnv(); err != nil {
 		lib.Log.Error(fmt.Sprintf("Error initializing environment: %s", err))
@@ -171,6 +181,8 @@ func run() {
 		http.ServeFile(w, r, "./public"+r.URL.Path)
 	})
 
+	http.HandleFunc("/init_script.sh", serveInitScript)
+
 	http.HandleFunc("/api/checkLogin", func(w http.ResponseWriter, r *http.Request) {
 		withCors(w, r)
 
@@ -219,7 +231,7 @@ func run() {
 			Value:    NewToken().Token,
 			Path:     "/",
 			SameSite: http.SameSiteNoneMode,
-			Secure:   true,
+			Secure:   lib.Config.WebServer.TlsDir != "",
 		})
 
 		w.WriteHeader(http.StatusOK)
@@ -256,8 +268,54 @@ func run() {
 			Value:    "",
 			Path:     "/",
 			SameSite: http.SameSiteNoneMode,
-			Secure:   true,
+			Secure:   lib.Config.WebServer.TlsDir != "",
 		})
+
+		w.WriteHeader(http.StatusOK)
+	})
+
+	http.HandleFunc("/api/create/single", func(w http.ResponseWriter, r *http.Request) {
+		withCors(w, r)
+
+		if !withAuth(w, r) {
+			return
+		}
+
+		if r.Method != "POST" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		if r.Header.Get("Content-Type") != "application/json" {
+			w.WriteHeader(http.StatusUnsupportedMediaType)
+			return
+		}
+
+		body := make([]byte, r.ContentLength)
+		r.Body.Read(body)
+
+		obj := struct {
+			Name string `json:"name"`
+			IP   string `json:"ip"`
+		}{}
+
+		err := json.Unmarshal(body, &obj)
+
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if lib.PingHost(obj.IP) {
+			w.WriteHeader(http.StatusIMUsed)
+			return
+		}
+
+		if _, err := env.CreateContainer(obj.Name, obj.IP, true); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
 
 		w.WriteHeader(http.StatusOK)
 	})
@@ -280,6 +338,18 @@ func run() {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(json)
+	})
+
+	http.HandleFunc("/api/public/scoring.json", func(w http.ResponseWriter, r *http.Request) {
+		withCors(w, r)
+
+		if r.Method != "GET" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(environment.ScoringJSON)
 	})
 
 	go func() {
@@ -480,7 +550,27 @@ func initTeams() {
 		}
 	}
 
+	var webServer *http.Server = &http.Server{Addr: fmt.Sprintf("%s:%d", lib.Config.WebServer.Host, lib.Config.WebServer.Port)}
+
+	go func() {
+		http.HandleFunc("/init_script.sh", serveInitScript)
+
+		if lib.Config.WebServer.TlsDir != "" {
+			if err := webServer.ListenAndServeTLS(lib.Config.WebServer.TlsDir+"/fullchain.pem", lib.Config.WebServer.TlsDir+"/privkey.pem"); err != nil {
+				lib.Log.Error(fmt.Sprintf("Error starting web server: %s", err))
+			}
+		} else {
+			if err := webServer.ListenAndServe(); err != nil {
+				lib.Log.Error(fmt.Sprintf("Error starting web server: %s", err))
+			}
+		}
+	}()
+
 	env.EfficientBulkCreate(inputs, 5)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	webServer.Shutdown(ctx)
 
 	env.Print()
 }
@@ -562,84 +652,10 @@ func main() {
 		initTeams()
 	case "purge":
 		purge()
-	case "ssh":
-		sshTesting()
 	default:
 		fmt.Println("Available modes:")
 		fmt.Println("\trun - Run the King of the Hill environment normally")
 		fmt.Println("\tinit - Manually create teams through the CLI")
 		fmt.Println("\tpurge - Destroy any and all king of the hill instances in Proxmox, wipe the database, remove keys.\n\t\tWill only remove proxmox containers with the name starting with env.CONTAINER_HOSTNAME_PREFIX")
 	}
-}
-
-func sshTesting() {
-	if err := lib.InitEnv(); err != nil {
-		lib.Log.Error(fmt.Sprintf("Error initializing environment: %s", err))
-		return
-	} else {
-		lib.Log.Status("Environment initialized")
-	}
-
-	if err := lib.InitSSH(); err != nil {
-		lib.Log.Error(fmt.Sprintf("Error initializing SSH: %s", err))
-		return
-	} else {
-		lib.Log.Status("SSH initialized")
-	}
-
-	if err := database.Connect(); err != nil {
-		lib.Log.Error(fmt.Sprintf("Error connecting to database: %s", err))
-		return
-	} else {
-		lib.Log.Status("Database connected")
-	}
-
-	proxmox, err := lib.InitProxmox()
-
-	if err != nil {
-		lib.Log.Error(fmt.Sprintf("Error initializing Proxmox: %s", err))
-		return
-	}
-
-	var env *environment.Environment = environment.NewEnvironment(proxmox)
-
-	if err := env.PullFromDatabase(); err != nil {
-		lib.Log.Error(fmt.Sprintf("Error pulling from database: %s", err))
-		return
-	} else {
-		lib.Log.Status("Environment pulled from database")
-	}
-
-	env.Print()
-
-	if len(env.Containers) == 0 {
-		lib.Log.Error("No containers found")
-		return
-	}
-
-	client, err := lib.NewSSHConnectionWithRetries(env.Containers[0].Team.ContainerIP, 2)
-
-	if err != nil {
-		lib.Log.Error(fmt.Sprintf("Error connecting to SSH: %s", err))
-		return
-	}
-
-	defer client.Close()
-
-	status, output, err := client.SendWithOutput("cat /var/www/html/index.html")
-
-	if err != nil {
-		lib.Log.Error(fmt.Sprintf("Error sending command: %s", err))
-		return
-	}
-
-	output = strings.TrimSpace(output)
-
-	if status != 0 {
-		lib.Log.Error(fmt.Sprintf("Error sending command: %s", output))
-		return
-	}
-
-	lib.Log.Status(fmt.Sprintf("Command output: %s", output))
-	lib.Log.Status("Command sent")
 }
