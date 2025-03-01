@@ -535,20 +535,6 @@ func purge() {
 	if containers, err := proxmox.RelevantContainers(); err != nil {
 		lib.Log.Error(fmt.Sprintf("Error getting containers: %s", err))
 	} else {
-		// for _, container := range containers {
-		// 	if err := proxmox.StopContainer(nil, int(container.VMID)); err != nil {
-		// 		lib.Log.Error(fmt.Sprintf("Error stopping container %d: %s", container.VMID, err))
-		// 	} else {
-		// 		lib.Log.Status(fmt.Sprintf("Container %d stopped", container.VMID))
-		// 	}
-
-		// 	if err := proxmox.DeleteContainer(nil, int(container.VMID)); err != nil {
-		// 		lib.Log.Error(fmt.Sprintf("Error deleting container %d: %s", container.VMID, err))
-		// 	} else {
-		// 		lib.Log.Status(fmt.Sprintf("Container %d deleted", container.VMID))
-		// 	}
-		// }
-
 		ctIDs := make([]int, len(containers))
 
 		for i, container := range containers {
@@ -601,7 +587,37 @@ func sshTesting() {
 		lib.Log.Status("SSH initialized")
 	}
 
-	client, err := lib.NewSSHConnectionWithRetries("192.168.6.249", 2)
+	if err := database.Connect(); err != nil {
+		lib.Log.Error(fmt.Sprintf("Error connecting to database: %s", err))
+		return
+	} else {
+		lib.Log.Status("Database connected")
+	}
+
+	proxmox, err := lib.InitProxmox()
+
+	if err != nil {
+		lib.Log.Error(fmt.Sprintf("Error initializing Proxmox: %s", err))
+		return
+	}
+
+	var env *environment.Environment = environment.NewEnvironment(proxmox)
+
+	if err := env.PullFromDatabase(); err != nil {
+		lib.Log.Error(fmt.Sprintf("Error pulling from database: %s", err))
+		return
+	} else {
+		lib.Log.Status("Environment pulled from database")
+	}
+
+	env.Print()
+
+	if len(env.Containers) == 0 {
+		lib.Log.Error("No containers found")
+		return
+	}
+
+	client, err := lib.NewSSHConnectionWithRetries(env.Containers[0].Team.ContainerIP, 2)
 
 	if err != nil {
 		lib.Log.Error(fmt.Sprintf("Error connecting to SSH: %s", err))
@@ -609,18 +625,15 @@ func sshTesting() {
 	}
 
 	defer client.Close()
-	// if err := client.Send("echo 'team1' > /var/www/html/team.html"); err != nil {
-	// 	lib.Log.Error(fmt.Sprintf("Error sending command: %s", err))
-	// } else {
-	// 	lib.Log.Status("Command sent")
-	// }
 
-	status, output, err := client.SendWithOutput("cat /var/www/html/team.html")
+	status, output, err := client.SendWithOutput("cat /var/www/html/index.html")
 
 	if err != nil {
 		lib.Log.Error(fmt.Sprintf("Error sending command: %s", err))
 		return
 	}
+
+	output = strings.TrimSpace(output)
 
 	if status != 0 {
 		lib.Log.Error(fmt.Sprintf("Error sending command: %s", output))

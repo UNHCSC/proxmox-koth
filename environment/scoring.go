@@ -107,4 +107,20 @@ var ScoringChecks []Check = []Check{
 			return client.Send("echo 'Hello World'") == nil
 		},
 	},
+	{
+		Name:    "Root can log in",
+		Desc:    "Check if the root user can log in via SSH using the private key",
+		Reward:  1,
+		Penalty: -1,
+		CheckFunction: func(e *Environment, c *Container) bool {
+			client, err := lib.NewSSHConnectionWithRetries(c.Team.ContainerIP, 3)
+
+			if err != nil {
+				return false
+			}
+
+			defer client.Close()
+			return client.Send("echo 'Hello World'") == nil
+		},
+	},
 }

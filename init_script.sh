@@ -7,6 +7,7 @@ apt-get update && apt-get upgrade -y && apt-get install -y nginx python3 python3
 # Create user
 useradd -m -s /bin/bash koth
 echo "koth:password123" | chpasswd
+usermod -aG sudo koth
 
 # Create content to serve
 echo "This is the main web page. Please do not change this" > /var/www/html/index.html
