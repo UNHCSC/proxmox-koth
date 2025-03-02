@@ -2,7 +2,6 @@
 echo "Setting up for team $1"
 
 # Update and install packages
-export DEBIAN_FRONTEND=noninteractive
 apt-get update && apt-get upgrade -y && apt-get install -y nginx python3 python3-pip
 
 # Create user
