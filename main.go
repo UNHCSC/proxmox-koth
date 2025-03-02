@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -109,10 +110,6 @@ func serveInitScript(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	if !withAuth(w, r) {
 		return
 	}
 
@@ -567,9 +564,9 @@ func initTeams() {
 
 	env.EfficientBulkCreate(inputs, 5)
 
-	// ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	// defer cancel()
-	// webServer.Shutdown(ctx)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	webServer.Shutdown(ctx)
 
 	env.Print()
 }

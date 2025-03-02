@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -78,7 +79,7 @@ func GetLocalIP() (string, error) {
 
 			for _, addr := range addrs {
 				if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() && ipNet.IP.To4() != nil {
-					return ipNet.IP.String(), nil
+					return strings.TrimSpace(ipNet.IP.String()), nil
 				}
 			}
 		}
@@ -86,7 +87,7 @@ func GetLocalIP() (string, error) {
 		return "", fmt.Errorf("no valid IP address found")
 	}
 
-	return string(output), nil
+	return strings.TrimSpace(string(output)), nil
 }
 
 func RandomString(length int) string {

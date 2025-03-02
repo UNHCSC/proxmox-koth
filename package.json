@@ -1,0 +1,13 @@
+{
+    "name": "proxmox-koth",
+    "version": "1.0.0",
+    "description": "Node's Webpack will serve as our build toolchain for this project",
+    "type": "module",
+    "dependencies": {
+        "webpack": "^5.98.0",
+        "webpack-cli": "^6.0.1"
+    },
+    "scripts": {
+        "build": "webpack --config ./webpack.config.js"
+    }
+}

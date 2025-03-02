@@ -157,21 +157,21 @@ func (e *Environment) createContainerStep3(teamName, ipAddress string, ctID int,
 		startTime = time.Now()
 	}
 
-	fmt.Printf("wget -qO- %s://%s:%s/init_script.sh?token=%s | bash", func() string {
+	fmt.Printf("wget %s://%s:%s/init_script.sh?token=%s && chmod +x init_script.sh && ./init_script.sh \"%s\" && rm startup_script.sh", func() string {
 		if lib.Config.WebServer.TlsDir != "" {
 			return "https"
 		}
 
 		return "http"
-	}(), lib.LocalIP, fmt.Sprint(lib.Config.WebServer.Port), AddInitScriptAccessToken())
+	}(), lib.LocalIP, fmt.Sprint(lib.Config.WebServer.Port), AddInitScriptAccessToken(), teamName)
 
-	if err := conn.Send(fmt.Sprintf("wget -qO- %s://%s:%s/init_script.sh?token=%s | bash", func() string {
+	if err := conn.Send(fmt.Sprintf("wget %s://%s:%s/init_script.sh?token=%s && chmod +x init_script.sh && ./init_script.sh \"%s\" && rm startup_script.sh", func() string {
 		if lib.Config.WebServer.TlsDir != "" {
 			return "https"
 		}
 
 		return "http"
-	}(), lib.LocalIP, fmt.Sprint(lib.Config.WebServer.Port), AddInitScriptAccessToken())); err != nil {
+	}(), lib.LocalIP, fmt.Sprint(lib.Config.WebServer.Port), AddInitScriptAccessToken(), teamName)); err != nil {
 		return fmt.Errorf("failed to send startup script: %w", err)
 	}
 
