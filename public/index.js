@@ -113,6 +113,7 @@ function updateContainerElement(apiContainer) {
     if (!existingContainer) {
         createNewContainerElement(apiContainer);
     } else {
+        existingContainer.querySelector(".containerStatus").className = "containerStatus";
         existingContainer.querySelector(".containerStatus").classList.add("status-" + (apiContainer.team.checks.failed > 0 ? "services-down" : apiContainer.container.status));
         existingContainer.querySelector("span.containerScore").textContent = apiContainer.team.score;
         existingContainer.querySelector("span.containerUptime").textContent = (apiContainer.team.uptime * 100).toFixed(2) + "%";

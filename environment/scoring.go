@@ -22,7 +22,7 @@ var ScoringChecks []Check = []Check{
 		Name:    "Ping",
 		Desc:    "Check if the container is reachable",
 		Reward:  3,
-		Penalty: -1,
+		Penalty: 1,
 		CheckFunction: func(_ *Environment, c *Container) bool {
 			return lib.PingHost(c.Team.ContainerIP)
 		},
@@ -46,7 +46,7 @@ var ScoringChecks []Check = []Check{
 		Name:    "Nginx Status",
 		Desc:    "Check if the container is running Nginx by asking the webserver for content",
 		Reward:  2,
-		Penalty: -2,
+		Penalty: 2,
 		CheckFunction: func(e *Environment, c *Container) bool {
 			res, err := http.Get("http://" + c.Team.ContainerIP)
 
@@ -63,8 +63,8 @@ var ScoringChecks []Check = []Check{
 	{
 		Name:    "Team Claim",
 		Desc:    "Check if the container is claimed by the expected team, if not, gives the other team 3 points",
-		Reward:  1,
-		Penalty: -3,
+		Reward:  0,
+		Penalty: 3,
 		CheckFunction: func(e *Environment, c *Container) bool {
 			res, err := http.Get("http://" + c.Team.ContainerIP + "/team")
 			if err != nil || res.StatusCode != 200 {
@@ -83,7 +83,7 @@ var ScoringChecks []Check = []Check{
 			if fetchedTeam != c.Team.Name {
 				for _, container := range e.Containers {
 					if container.Team.Name == fetchedTeam {
-						container.Team.Score += 3
+						container.Team.Score += 6
 					}
 				}
 
@@ -97,7 +97,7 @@ var ScoringChecks []Check = []Check{
 		Name:    "Root can log in",
 		Desc:    "Check if the root user can log in via SSH using the private key",
 		Reward:  1,
-		Penalty: -1,
+		Penalty: 1,
 		CheckFunction: func(e *Environment, c *Container) bool {
 			client, err := lib.NewSSHConnectionWithRetries(c.Team.ContainerIP, 3)
 

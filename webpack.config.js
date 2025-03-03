@@ -31,7 +31,7 @@ const config = {
                 console.log("Building go project...");
 
                 // Build go project to build (Targeted for linux amd64)
-                childProcess.execSync("go build -o build/server", {
+                childProcess.execSync("go build -o build/koth", {
                     stdio: "inherit",
                     // Set GOOS and GOARCH to linux and amd64 respectively
                     env: {
@@ -40,6 +40,13 @@ const config = {
                         GOARCH: "amd64"
                     }
                 });
+
+                // Try to make it executable
+                try {
+                    fs.chmodSync("build/koth", 0o755);
+                } catch (error) {
+                    console.error("Failed to make the binary executable:", error);
+                }
 
                 console.log("Copying script and env file...");
                 fs.copyFileSync("init_script.sh", "build/init_script.sh");

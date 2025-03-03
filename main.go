@@ -270,7 +270,7 @@ func run() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	http.HandleFunc("/api/create/single", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/create", func(w http.ResponseWriter, r *http.Request) {
 		withCors(w, r)
 
 		if !withAuth(w, r) {
@@ -282,7 +282,7 @@ func run() {
 			return
 		}
 
-		if r.Header.Get("Content-Type") != "application/json" {
+		if r.Header.Get("Content-Type") != "text/plain" {
 			w.WriteHeader(http.StatusUnsupportedMediaType)
 			return
 		}

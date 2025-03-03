@@ -157,22 +157,16 @@ func (e *Environment) createContainerStep3(teamName, ipAddress string, ctID int,
 		startTime = time.Now()
 	}
 
-	scriptCommand := fmt.Sprintf("wget -O /tmp/init_script.sh \"%s://%s:%s/init_script.sh?token=%s\" && sed -i 's/\r$//' /tmp/init_script.sh && chmod +x /tmp/init_script.sh && bash /tmp/init_script.sh \"%s\" && rm /tmp/init_script.sh", func() string {
+	if exit, output, err := conn.SendWithOutput(fmt.Sprintf("wget -O /tmp/init_script.sh \"%s://%s:%s/init_script.sh?token=%s\" && sed -i 's/\r$//' /tmp/init_script.sh && chmod +x /tmp/init_script.sh && bash /tmp/init_script.sh \"%s\" && rm /tmp/init_script.sh", func() string {
 		if lib.Config.WebServer.TlsDir != "" {
 			return "https"
 		}
 
 		return "http"
-	}(), lib.LocalIP, fmt.Sprint(lib.Config.WebServer.Port), AddInitScriptAccessToken(), teamName)
-
-	lib.Log.Warningf("[%s][%s]: Running command: %s", teamName, ipAddress, scriptCommand)
-
-	if exit, output, err := conn.SendWithOutput(scriptCommand); err != nil {
+	}(), lib.LocalIP, fmt.Sprint(lib.Config.WebServer.Port), AddInitScriptAccessToken(), teamName)); err != nil {
 		return fmt.Errorf("failed to send startup script: %w", err)
 	} else if exit != 0 {
 		return fmt.Errorf("failed to run startup script (%d): %s", exit, output)
-	} else if len(output) > 0 {
-		lib.Log.Warningf("[%s][%s]: Output: %s", teamName, ipAddress, output)
 	}
 
 	if verbose {
@@ -303,37 +297,58 @@ func (e *Environment) InitAutoUpdate() chan bool {
 					go func(ct *Container) {
 						defer wg.Done()
 
-						ct.Team.ServiceChecksPassed = 0
-						ct.Team.ServiceChecksTotal = 0
+						// ct.Team.ServiceChecksPassed = 0
+						// ct.Team.ServiceChecksTotal = 0
 
-						ct.PassedChecks = []string{}
-						ct.FailedChecks = []string{}
+						// ct.PassedChecks = []string{}
+						// ct.FailedChecks = []string{}
+
+						serviceChecksPassed := 0
+						serviceChecksTotal := 0
+
+						uptimePassed := 0
+						uptimeTotal := 0
+
+						passedChecks := []string{}
+						failedChecks := []string{}
+
+						scoreToAdd := 0
 
 						for _, check := range ScoringChecks {
-							ct.Team.ServiceChecksTotal++
+							serviceChecksTotal++
 
 							if check.CheckFunction(e, ct) {
-								ct.Team.ServiceChecksPassed++
-								ct.Team.Score += check.Reward
+								serviceChecksPassed++
+								scoreToAdd += check.Reward
 
 								if check.Name == "Ping" {
-									ct.Team.UptimeChecksPassed++
-									ct.Team.UptimeChecksTotal++
+									uptimePassed++
+									uptimeTotal++
 								}
 
-								ct.PassedChecks = append(ct.PassedChecks, check.Name)
+								passedChecks = append(passedChecks, check.Name)
 							} else {
-								ct.Team.Score -= check.Penalty
+								scoreToAdd -= check.Penalty
 
 								if check.Name == "Ping" {
-									ct.Team.UptimeChecksTotal++
+									uptimeTotal++
 								}
 
-								ct.FailedChecks = append(ct.FailedChecks, check.Name)
+								failedChecks = append(failedChecks, check.Name)
 							}
 						}
 
 						ct.UpdatedAt = time.Now()
+						ct.ServiceChecksCount = serviceChecksTotal
+						ct.ServiceChecksPassed = serviceChecksPassed
+						ct.PassedChecks = passedChecks
+						ct.FailedChecks = failedChecks
+
+						ct.Team.ServiceChecksTotal = serviceChecksTotal
+						ct.Team.ServiceChecksPassed = serviceChecksPassed
+						ct.Team.UptimeChecksTotal += uptimeTotal
+						ct.Team.UptimeChecksPassed += uptimePassed
+						ct.Team.Score += scoreToAdd
 					}(container)
 				}
 

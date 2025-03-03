@@ -16,4 +16,8 @@ echo $1 > /var/www/html/team
 # Enable and start Nginx
 systemctl enable --now nginx
 
+# Alice, Bob, and Charlie's setup
+## SSH Keys
+## SGID
+
 echo "Setup complete!"

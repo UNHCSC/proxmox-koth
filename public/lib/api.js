@@ -121,3 +121,19 @@ export async function logout() {
 
     return new APIResponse(response.status, null);
 }
+
+export async function createContainer(teamName, ipAddress) {
+    const response = await fetch("/api/create", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+            "Content-Type": "text/plain"
+        },
+        body: JSON.stringify({
+            name: teamName,
+            ip: ipAddress
+        })
+    });
+
+    return new APIResponse(response.status, response.status === 200 ? null : await response.text());
+}
