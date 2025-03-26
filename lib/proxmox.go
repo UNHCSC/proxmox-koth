@@ -54,6 +54,10 @@ func InitProxmox() (*ProxmoxAPI, error) {
 				return nil, err
 			}
 
+			if strings.Contains(realNode.Name, "720xd") { // Skip shitbox
+				continue
+			}
+
 			api.Nodes = append(api.Nodes, realNode)
 		}
 	}

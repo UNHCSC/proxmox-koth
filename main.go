@@ -410,14 +410,14 @@ func initTeams() {
 
 	reader := bufio.NewReader(os.Stdin)
 
-	lib.Log.Query("Mathematically create teams? (y/n): ")
+	lib.Log.Query("Mathematically create teams? (y/n):")
 	response, _ := reader.ReadString('\n')
 	response = strings.TrimSpace(strings.ToLower(response))
 
 	var inputs [][]string = make([][]string, 0)
 
 	if response == "y" {
-		lib.Log.Query("Enter number of teams: ")
+		lib.Log.Query("Enter number of teams:")
 		response, _ = reader.ReadString('\n')
 		response = strings.TrimSpace(response)
 
@@ -459,7 +459,7 @@ func initTeams() {
 			lib.Log.Status(fmt.Sprintf("Team Name: %s, IPv4: %s", input[0], input[1]))
 		}
 
-		lib.Log.Query("Continue? (y/n): ")
+		lib.Log.Query("Continue? (y/n):")
 		response, _ = reader.ReadString('\n')
 		response = strings.TrimSpace(strings.ToLower(response))
 
@@ -473,11 +473,11 @@ func initTeams() {
 		for {
 			var name, ipv4 string
 
-			lib.Log.Query("Enter Team Name: ")
+			lib.Log.Query("Enter Team Name:")
 			name, _ = reader.ReadString('\n')
 			name = strings.TrimSpace(name)
 
-			lib.Log.Query("Enter team IPv4: ")
+			lib.Log.Query("Enter team IPv4:")
 			ipv4, _ = reader.ReadString('\n')
 			ipv4 = strings.TrimSpace(ipv4)
 
@@ -527,7 +527,7 @@ func initTeams() {
 
 			var keepGoing bool
 			for {
-				lib.Log.Query("Continue? (y/n): ")
+				lib.Log.Query("Continue? (y/n):")
 				response, _ := reader.ReadString('\n')
 				response = strings.TrimSpace(strings.ToLower(response))
 

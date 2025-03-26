@@ -28,6 +28,9 @@ go.work.sum
 keys
 sqlite.db
 
+# Private because we don't want to share how we configure containers
+init_script.sh
+
 node_modules
 package-lock.json
 build

@@ -1,7 +1,11 @@
-- Batching
-- Error handling with database lookups
-- Updates/sync
-- Create api
-- Create Many API
-- Search
-- Management functions
+- ALT View (CCDC style score chart)
+- Change Init Script
+    - More users by default
+    - "Generic" ssh keys that get distributed
+    - "scoring-agent" user with SSH key, no password
+    - Create packet explaining what's going on
+    - Database with HTTP REST API to modify stuff in database
+- Change Scoring slightly
+    - Total possible points
+    - History?
+    - Database scoring
