@@ -106,7 +106,7 @@ var ScoringChecks []Check = []Check{
 			}
 
 			defer client.Close()
-			return client.Send("echo 'Hello World'") == nil
+			return client.Send("whoami") == nil
 		},
 	},
 }
