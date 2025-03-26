@@ -48,6 +48,11 @@ type Container struct {
 	PassedChecks, FailedChecks              []string
 }
 
+type SavedState struct {
+	TotalPossiblePoints int
+	
+}
+
 type Environment struct {
 	Containers []*Container
 	proxmoxAPI *lib.ProxmoxAPI

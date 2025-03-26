@@ -427,7 +427,7 @@ func initTeams() {
 			return
 		}
 
-		lib.Log.Query("Enter starting IPv4: ")
+		lib.Log.Query("Enter starting IPv4:")
 		response, _ = reader.ReadString('\n')
 		ipv4 := strings.TrimSpace(response)
 

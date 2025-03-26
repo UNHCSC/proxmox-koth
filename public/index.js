@@ -106,8 +106,17 @@ function createNewContainerElement(apiContainer) {
     mainContent.appendChild(container);
 }
 
+/** @type {Object<string,api.APIContainer>} */
+const environmentHistory = {};
+
 /** @param {api.APIContainer} apiContainer */
 function updateContainerElement(apiContainer) {
+    if (environmentHistory[apiContainer.team.name] == null) {
+        environmentHistory[apiContainer.team.name] = [];
+    }
+
+    environmentHistory[apiContainer.team.name].push(apiContainer);
+
     const existingContainer = mainContent.querySelector(`div.container[data-id="${apiContainer.team.name}"]`);
 
     if (!existingContainer) {

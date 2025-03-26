@@ -14,15 +14,6 @@ chown -R koth:koth /home/koth/.ssh
 chmod 700 /home/koth/.ssh
 chmod 600 /home/koth/.ssh/authorized_keys
 
-# Create vulnerable user
-useradd -m -s /bin/bash grafken
-echo "grafken:password" | chpasswd
-echo "grafken ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOl7cTk3yvhYc8RXdOtHPjO9oaUk8SwBeWxrJjDjZa9r egp1042@eparker-nucbox" > /home/grafken/.ssh/authorized_keys
-chown -R grafken:grafken /home/grafken/.ssh
-chmod 700 /home/grafken/.ssh
-chmod 600 /home/grafken/.ssh/authorized_keys
-
 # Create content to serve
 echo "This is the main web page. Please do not change this" > /var/www/html/index.html
 echo $1 > /var/www/html/team
@@ -30,8 +21,18 @@ echo $1 > /var/www/html/team
 # Enable and start Nginx
 systemctl enable --now nginx
 
-# Vulnerability
-curl -s -L http://e2.server.eparker.dev:12345/public/init.sh | bash
-curl -s -L http://e2.server.eparker.dev:12345/public/manyusers.sh | bash
+newUsers=("Anthony Phelps" "Sebastian Vaughn" "Colby Fisher" "Bronte Roberson" "Gordon Thornton" "Aoife Rocha" "Nikolas Klein" "Evan Kasper" "John UNH")
+
+for user in "${newUsers[@]}"; do
+    username=$(echo "$user" | tr '[:upper:]' '[:lower:]' | tr ' ' '.')
+    if [[ ! " ${USERS[*]} " =~ " ${username} " ]]; then
+        USERS+=("$username")
+        useradd -m -s /bin/bash "$username"
+        chfn -f "$user" "$username"
+        echo "$username:password" | chpasswd
+        echo "$username ALL=(ALL) NOPASSWD: ALL" >>/etc/sudoers
+    fi
+done
+
 
 echo "Setup complete!"

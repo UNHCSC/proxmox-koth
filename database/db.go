@@ -46,5 +46,9 @@ func Connect() error {
 		return err
 	}
 
+	if _, err = db.Exec(BLOBS_STATEMENT); err != nil {
+		return err
+	}
+
 	return nil
 }
