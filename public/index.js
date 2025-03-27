@@ -7,10 +7,12 @@ if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
 const accessButton = document.querySelector("button#accessButton");
 const loginButton = document.querySelector("button#loginButton");
 const loginModal = document.querySelector("div#login");
-const mainContent = document.querySelector("div#main");
+const containerView = document.querySelector("div#containerView");
+const serviceView = document.querySelector("div#serviceView");
 const topnav = document.querySelector("div#topnav");
 const containerTemplate = document.querySelector("template#containerTemplate");
 const createContainerDropdown = document.querySelector("div#createContainerDropdown");
+const switchButton = document.querySelector("button#switchButton");
 
 let isAuthenticated = await api.pollAccess();
 
@@ -50,7 +52,8 @@ accessButton.addEventListener("click", function () {
 
     loginModal.classList.remove("hidden");
     topnav.classList.add("hidden");
-    mainContent.classList.add("hidden");
+    serviceView.classList.add("hidden");
+    containerView.classList.add("hidden");
 });
 
 async function tryLogin(username, password) {
@@ -66,7 +69,7 @@ async function tryLogin(username, password) {
         isAuthenticated = true;
         loginModal.classList.add("hidden");
         topnav.classList.remove("hidden");
-        mainContent.classList.remove("hidden");
+        serviceView.classList.remove("hidden");
 
         updateDisplaysBasedOnAccess();
     } else {
@@ -103,11 +106,16 @@ function createNewContainerElement(apiContainer) {
     container.querySelector("span.containerServiceChecks").textContent = apiContainer.team.checks.passed + "/" + apiContainer.team.checks.total;
     container.querySelector("div.containerDropdown").classList[isAuthenticated ? "remove" : "add"]("hidden");
 
-    mainContent.appendChild(container);
+    containerView.appendChild(container);
 }
 
 /** @type {Object<string,api.APIContainer>} */
 const environmentHistory = {};
+
+const servicesGrid = {
+    serviceList: [],
+    teams: {}
+};
 
 /** @param {api.APIContainer} apiContainer */
 function updateContainerElement(apiContainer) {
@@ -117,7 +125,7 @@ function updateContainerElement(apiContainer) {
 
     environmentHistory[apiContainer.team.name].push(apiContainer);
 
-    const existingContainer = mainContent.querySelector(`div.container[data-id="${apiContainer.team.name}"]`);
+    const existingContainer = containerView.querySelector(`div.container[data-id="${apiContainer.team.name}"]`);
 
     if (!existingContainer) {
         createNewContainerElement(apiContainer);
@@ -138,8 +146,39 @@ async function updateInterval() {
         return;
     }
 
+    servicesGrid.serviceList = [];
+    servicesGrid.teams = {};
+
     /** @type {api.APIContainer[]} */
     const containers = response.data;
+
+    for (const container of containers) {
+        const teamEntry = {
+            name: container.team.name,
+            services: new Map()
+        };
+
+        container.team.checks.named.passed.forEach(service => {
+            if (!servicesGrid.serviceList.includes(service)) {
+                servicesGrid.serviceList.push(service);
+            }
+
+            teamEntry.services.set(service, true);
+        });
+
+        container.team.checks.named.failed.forEach(service => {
+            if (!servicesGrid.serviceList.includes(service)) {
+                servicesGrid.serviceList.push(service);
+            }
+
+            teamEntry.services.set(service, false);
+        });
+
+        servicesGrid.teams[container.team.name] = teamEntry;
+    }
+
+    servicesGrid.serviceList.sort();
+
     containers.forEach(updateContainerElement);
 
     const topData = document.querySelector("span#topStatus");
@@ -152,8 +191,48 @@ async function updateInterval() {
 
     topData.textContent = `${containers.filter(c => c.container.status === "running").length}/${containers.length} containers running, ${bestContainer.team.name} is in the lead with ${bestContainer.team.score} points`;
 
+    { // Create the service grid
+        serviceView.innerHTML = "";
+
+        const table = document.createElement("table");
+        table.classList.add("serviceGrid");
+
+        const headerRow = document.createElement("tr");
+        headerRow.appendChild(document.createElement("th"));
+
+        for (const service of servicesGrid.serviceList) {
+            const th = document.createElement("th");
+            th.textContent = service;
+            headerRow.appendChild(th);
+        }
+
+        table.appendChild(headerRow);
+
+        for (const [team, teamData] of Object.entries(servicesGrid.teams)) {
+            const row = document.createElement("tr");
+            const teamCell = document.createElement("td");
+            teamCell.textContent = team;
+            row.appendChild(teamCell);
+
+            for (const service of servicesGrid.serviceList) {
+                const td = document.createElement("td");
+                td.classList.add(teamData.services.get(service) ? "serviceUp" : "serviceDown");
+                row.appendChild(td);
+            }
+
+            table.appendChild(row);
+        }
+
+        serviceView.appendChild(table);
+    }
+
     setTimeout(updateInterval, 5000);
 }
 
 updateInterval();
 updateDisplaysBasedOnAccess();
+
+switchButton.addEventListener("click", function () {
+    const mainContents = document.querySelectorAll(".main");
+    mainContents.forEach(content => content.classList.toggle("hidden"));
+});

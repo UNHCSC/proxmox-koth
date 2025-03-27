@@ -49,8 +49,7 @@ type Container struct {
 }
 
 type SavedState struct {
-	TotalPossiblePoints int
-	
+	TotalPossiblePoints int `json:"totalPossiblePoints"`
 }
 
 type Environment struct {
@@ -58,6 +57,7 @@ type Environment struct {
 	proxmoxAPI *lib.ProxmoxAPI
 
 	nodeCreationTracker int
+	SavedState          *SavedState
 }
 
 func NewEnvironment(proxmoxAPI *lib.ProxmoxAPI) *Environment {

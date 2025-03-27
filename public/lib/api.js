@@ -94,7 +94,11 @@ export class APIContainer {
         checks: {
             failed: 0,
             passed: 0,
-            total: 0
+            total: 0,
+            named: {
+                failed: [],
+                passed: []
+            }
         }
     };
 
