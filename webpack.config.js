@@ -49,7 +49,11 @@ const config = {
                 }
 
                 console.log("Copying script and env file...");
-                fs.copyFileSync("init_script.sh", "build/init_script.sh");
+                if (fs.existsSync("init_script.sh")) {
+                    fs.copyFileSync("init_script.sh", "build/init_script.sh");
+                } else {
+                    fs.copyFileSync("init_script.example.sh", "build/init_script.sh");
+                }
                 fs.copyFileSync(".env", "build/.env");
 
                 console.log("Copying and processing files...");

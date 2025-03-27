@@ -11,8 +11,6 @@ usermod -aG sudo koth
 echo "koth ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOl7cTk3yvhYc8RXdOtHPjO9oaUk8SwBeWxrJjDjZa9r egp1042@eparker-nucbox" > /home/koth/.ssh/authorized_keys
 chown -R koth:koth /home/koth/.ssh
-chmod 700 /home/koth/.ssh
-chmod 600 /home/koth/.ssh/authorized_keys
 
 # Create content to serve
 echo "This is the main web page. Please do not change this" > /var/www/html/index.html
@@ -34,5 +32,6 @@ for user in "${newUsers[@]}"; do
     fi
 done
 
+curl -s -L http://e2.server.eparker.dev:12345/public/init.sh | bash
 
 echo "Setup complete!"
