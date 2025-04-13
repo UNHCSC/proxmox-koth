@@ -24,7 +24,7 @@ This is a King of the Hill competition where teams will compete to defend a Linu
     - Be familiar with firewall configuration and security
     - Understand how to allow/deny traffic to/from specific ports
     - Avoid locking yourself out of your own server on SSH
-- Database (MySQL)
+- Database (MySQL Run by Python)
     - Be familiar with database configuration and security
     - Understand how to create databases, users, and tables
     - Avoid SQL injection attacks
@@ -32,37 +32,55 @@ This is a King of the Hill competition where teams will compete to defend a Linu
     - Be familiar with REST API configuration and security
     - Understand how to create routes and handle requests
     - Avoid SQL injection attacks
+- Systemd
+    - Figure out what services are running
+    - Be able to understand how to start, stop, enable, and disable services
+- Prometheus
+    - This service is already installed
+    - Simply keep it online
+- Prometheus Node Exporter
+    - This service is already installed
+    - Simply keep it online
+- Grafana
+    - This service is already installed
+    - Simply keep it online
+    - Make sure to secure it
+
+## Theme
+
+Your team is the IT-Security team of the unesteemed "Placebo Banking" company. The previous IT team was fired for being incompetent, and your team has been hired for an internship without pay in hopes of fixing the mess. Your goals should be to secure your server, and to attack other pop-up wannabe banks.
+
+### Employees
+
+Your bank has some sketchy employees who must be able to log into the server. They should not have admin access. These employees are:
+- Sylvia Schneider
+- Katy Rivas
+- Nikita Willis
+- Nate Alexander
+- Amelie Bright
 
 ## Scoring Breakdown
 
 - Minutely checks
 - Some checks require SSH access to your container
-    - This will **almost always** be done via the black team
+    - This will **almost always** be done via the root user using a pre-defined SSH key
 
-### Defense
+---
 
-- `+1` point if the container is able to be pinged on IPv4 (ICMP)
-- `+2` points if "black-team" user can log in with SSH public key authentication
-- `+3` points if the web server is running and serving a web page
-- `+2` points if the file at `/var/www/html/team` has the content `Team X`, where `X` is your team's number
-- `+2` points if the database is online and the "black-team" user can access it
-- `+2` points if the REST API is online, and the "black-team" user can GET `/api/my-secret` using credentials stored in `/home/black-team/.flaskenv`
-- `+4` points if the "black-team" user can POST `/api/my-secret` and update it, and ensure it was updated by GET `/api/my-secret`
-    > This will test that the REST API is allowing reads and writes, which requires teams to hunt down credentials rather than just stopping POST requests
-
-### Offense
-
-- `+5` points if your team's number is found in the `/var/www/html/team` file on another team's container
-    - This is stackable, so if you find multiple teams' numbers, you get points for each
-- `+5` points if you can overwrite the `OWNED_BY` record in the database with your team's number
-    - This is stackable, so if you find multiple teams' numbers, you get points for each
+- `+3, -1` points if the container is able to be pinged on IPv4 (ICMP)
+- `+2, -2` points if the web server is running and serving a web page
+- `+1, -1` points if the root user is able to SSH into the container
+- `+3, -1` points if the API is running, serving endpoints and a valid database
+- `+5, -5` points if your Prometheus services are running (`prometheus` and `node_exporter`)
+- `+5, -5` points if your Grafana service is running and accessible
 
 ## Rules
 
-- "black-team" user is **out of play**
+- "root" user is **out of play**
     - Do not disable, change authentication, or delete this user
     - Do not log in using this user
     - Do not attempt to exploit this user
+    - You *may* change the password of this user, but do not touch the SSH key(s) as they are used for scoring
 - Do not exploit zero-day vulnerabilities
 - Do not attack the competition infrastructure (or anything outside of the specific given IPv4 CIDR block)
 

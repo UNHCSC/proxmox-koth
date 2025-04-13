@@ -120,7 +120,14 @@ func serveInitScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.ServeFile(w, r, "./init_script.sh")
+	// http.ServeFile(w, r, "./init_script.sh")
+
+	if _, err := os.Open("./init_script.sh"); err != nil {
+		http.ServeFile(w, r, "./init_script.example.sh")
+		return
+	} else {
+		http.ServeFile(w, r, "./init_script.sh")
+	}
 }
 
 func run() {
