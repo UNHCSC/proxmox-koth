@@ -289,82 +289,81 @@ func (e *Environment) JSON() ([]byte, error) {
 	return jsonData, nil
 }
 
+func (e *Environment) runScoring() {
+	wg := &sync.WaitGroup{}
+	for _, container := range e.Containers {
+		wg.Add(1)
+		go func(ct *Container) {
+			defer wg.Done()
+
+			serviceChecksPassed := 0
+			serviceChecksTotal := 0
+
+			uptimePassed := 0
+			uptimeTotal := 0
+
+			passedChecks := []string{}
+			failedChecks := []string{}
+
+			scoreToAdd := 0
+
+			for _, check := range ScoringChecks {
+				serviceChecksTotal++
+
+				if check.CheckFunction(e, ct) {
+					serviceChecksPassed++
+					scoreToAdd += check.Reward
+
+					if check.Name == "Ping" {
+						uptimePassed++
+						uptimeTotal++
+					}
+
+					passedChecks = append(passedChecks, check.Name)
+				} else {
+					scoreToAdd -= check.Penalty
+
+					if check.Name == "Ping" {
+						uptimeTotal++
+					}
+
+					failedChecks = append(failedChecks, check.Name)
+				}
+			}
+
+			ct.UpdatedAt = time.Now()
+			ct.ServiceChecksCount = serviceChecksTotal
+			ct.ServiceChecksPassed = serviceChecksPassed
+			ct.PassedChecks = passedChecks
+			ct.FailedChecks = failedChecks
+
+			ct.Team.ServiceChecksTotal = serviceChecksTotal
+			ct.Team.ServiceChecksPassed = serviceChecksPassed
+			ct.Team.UptimeChecksTotal += uptimeTotal
+			ct.Team.UptimeChecksPassed += uptimePassed
+			ct.Team.Score += scoreToAdd
+		}(container)
+	}
+
+	wg.Wait()
+
+	for _, container := range e.Containers {
+		if err := database.UpdateTeam(container.Team); err != nil {
+			lib.Log.Error(fmt.Sprintf("[%s][%s]: Failed to update team in database: %s", container.Team.Name, container.Team.ContainerIP, err.Error()))
+		}
+	}
+}
+
 func (e *Environment) InitAutoUpdate() chan bool {
 	stop := make(chan bool)
 
 	go func() {
+		e.runScoring()
+
 		for {
 			select {
 			case <-time.After(30 * time.Second):
-				wg := &sync.WaitGroup{}
-				for _, container := range e.Containers {
-					wg.Add(1)
-					go func(ct *Container) {
-						defer wg.Done()
-
-						// ct.Team.ServiceChecksPassed = 0
-						// ct.Team.ServiceChecksTotal = 0
-
-						// ct.PassedChecks = []string{}
-						// ct.FailedChecks = []string{}
-
-						serviceChecksPassed := 0
-						serviceChecksTotal := 0
-
-						uptimePassed := 0
-						uptimeTotal := 0
-
-						passedChecks := []string{}
-						failedChecks := []string{}
-
-						scoreToAdd := 0
-
-						for _, check := range ScoringChecks {
-							serviceChecksTotal++
-
-							if check.CheckFunction(e, ct) {
-								serviceChecksPassed++
-								scoreToAdd += check.Reward
-
-								if check.Name == "Ping" {
-									uptimePassed++
-									uptimeTotal++
-								}
-
-								passedChecks = append(passedChecks, check.Name)
-							} else {
-								scoreToAdd -= check.Penalty
-
-								if check.Name == "Ping" {
-									uptimeTotal++
-								}
-
-								failedChecks = append(failedChecks, check.Name)
-							}
-						}
-
-						ct.UpdatedAt = time.Now()
-						ct.ServiceChecksCount = serviceChecksTotal
-						ct.ServiceChecksPassed = serviceChecksPassed
-						ct.PassedChecks = passedChecks
-						ct.FailedChecks = failedChecks
-
-						ct.Team.ServiceChecksTotal = serviceChecksTotal
-						ct.Team.ServiceChecksPassed = serviceChecksPassed
-						ct.Team.UptimeChecksTotal += uptimeTotal
-						ct.Team.UptimeChecksPassed += uptimePassed
-						ct.Team.Score += scoreToAdd
-					}(container)
-				}
-
-				wg.Wait()
-
-				for _, container := range e.Containers {
-					if err := database.UpdateTeam(container.Team); err != nil {
-						lib.Log.Error(fmt.Sprintf("[%s][%s]: Failed to update team in database: %s", container.Team.Name, container.Team.ContainerIP, err.Error()))
-					}
-				}
-
+				e.runScoring()
 			case <-stop:
 				return
 			}
