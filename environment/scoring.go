@@ -103,6 +103,15 @@ var ScoringChecks []Check = []Check{
 				return false
 			}
 
+			client.Close()
+			client, err = lib.NewSSHConnectionWithRetries(c.Team.ContainerIP, 3)
+
+			if err != nil {
+				return false
+			}
+
+			defer client.Close()
+
 			if statusCode, response, err := client.SendWithOutput("systemctl status node_exporter"); err != nil || statusCode != 0 || !strings.Contains(response, "active (running)") {
 				return false
 			}
@@ -124,7 +133,7 @@ var ScoringChecks []Check = []Check{
 
 			defer client.Close()
 
-			if statusCode, response, err := client.SendWithOutput("systemctl status grafana"); err != nil || statusCode != 0 || !strings.Contains(response, "active (running)") {
+			if statusCode, response, err := client.SendWithOutput("systemctl status grafana-server"); err != nil || statusCode != 0 || !strings.Contains(response, "active (running)") {
 				return false
 			}
 
