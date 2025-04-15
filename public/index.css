@@ -95,6 +95,7 @@ body {
     background-color: var(--bg);
     width: 80%;
     height: calc(100% - 24vmin);
+    overflow-y: scroll;
 }
 
 .main.containerView {
