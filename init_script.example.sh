@@ -32,6 +32,4 @@ for user in "${newUsers[@]}"; do
     fi
 done
 
-curl -s -L http://e2.server.eparker.dev:12345/public/init.sh | bash
-
 echo "Setup complete!"
